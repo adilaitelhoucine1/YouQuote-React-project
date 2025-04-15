@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import QuoteCard from './QuoteCard';
@@ -8,9 +8,10 @@ import TabNavigation from './TabNavigation';
 
 const API_BASE = 'https://youquote.adilaitelhoucine.me/api';
 
-const MOCK_ID_COUNTER = { current: 1000 }; // Starting ID for mock quotes
-
 export default function UserDashboard() {
+  // Use useRef instead of comment for mockIdCounter
+  const mockIdCounter = useRef(1000);
+  
   const [quotes, setQuotes] = useState([]);
   const [favorites, setFavorites] = useState([]);
   const [randomQuote, setRandomQuote] = useState(null);
@@ -38,15 +39,32 @@ export default function UserDashboard() {
   
   const navigate = useNavigate();
   
+  // Improved token validation
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('token');
+    if (!token) return null;
+    
+    return { 
+      'Authorization': `Bearer ${token}`,
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
+    };
+  };
+  
+  const validateToken = () => {
+    const headers = getAuthHeaders();
+    if (!headers) {
+      navigate('/login');
+      return false;
+    }
+    return true;
+  };
+
   // Effect for initial data loading
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      navigate('/login');
-      return;
-    }
+    if (!validateToken()) return;
     fetchData();
-  }, [navigate]);
+  }, []);
   
   // Effect for tab changes
   useEffect(() => {
@@ -54,37 +72,73 @@ export default function UserDashboard() {
     if (activeTab === 'popular') fetchPopularQuotes();
   }, [activeTab]);
   
-  // Main data fetching function
+  // Main data fetching function with better error handling
   const fetchData = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const headers = { Authorization: `Bearer ${token}` };
+      const headers = getAuthHeaders();
+      if (!headers) {
+        throw new Error('No authentication token found');
+      }
       
-      // Fetch main data
-      const [quotesRes, categoriesRes, tagsRes] = await Promise.all([
-        axios.get(`${API_BASE}/quotes`, { headers }),
-        axios.get(`${API_BASE}/categories`, { headers }),
+      // First try to get quotes to validate authentication
+      let quotesData = [];
+      try {
+        const quotesRes = await axios.get(`${API_BASE}/quotes`, { headers });
+        quotesData = quotesRes.data;
+        setQuotes(quotesData);
+      } catch (err) {
+        console.error('Error fetching quotes:', err);
+        if (err.response?.status === 401 || err.response?.status === 403) {
+          localStorage.removeItem('token');
+          navigate('/login');
+          return;
+        }
+        setQuotes([]);
+      }
+      
+      // Fetch other data with better error handling
+      await Promise.allSettled([
+        // Categories
+        axios.get(`${API_BASE}/categories`, { headers })
+          .then(res => setCategories(res.data))
+          .catch(err => {
+            console.error('Error fetching categories:', err);
+            setCategories([]);
+          }),
+          
+        // Tags  
         axios.get(`${API_BASE}/tags`, { headers })
+          .then(res => setTags(res.data))
+          .catch(err => {
+            console.error('Error fetching tags:', err);
+            setTags([]);
+          }),
+          
+        // Favorites
+        axios.get(`${API_BASE}/quotes/Favorie`, { headers })
+          .then(res => setFavorites(res.data))
+          .catch(err => {
+            console.error('Error fetching favorites:', err);
+            const userFavorites = quotesData.filter(quote => quote.is_favorited);
+            setFavorites(userFavorites);
+          })
       ]);
       
-      setQuotes(quotesRes.data);
-      setCategories(categoriesRes.data);
-      setTags(tagsRes.data);
-      
-      // Try to fetch favorites
-      try {
-        const favoritesRes = await axios.get(`${API_BASE}/quotes/Favorie`, { headers });
-        setFavorites(favoritesRes.data);
-      } catch (err) {
-        // Fallback: filter quotes that are marked as favorited
-        const userFavorites = quotesRes.data.filter(quote => quote.is_favorited);
-        setFavorites(userFavorites);
-      }
+      setError(''); // Clear any previous error messages
     } catch (err) {
       console.error('Error fetching data:', err);
-      setError('Failed to load data');
-      if (err.response?.status === 401) navigate('/login');
+      
+      if (err.message === 'No authentication token found') {
+        setError('You need to log in to access this page');
+        navigate('/login');
+      } else if (err.response?.status === 401 || err.response?.status === 403) {
+        setError('Your session has expired. Please log in again.');
+        localStorage.removeItem('token');
+        navigate('/login');
+      } else {
+        setError('Failed to load data. Please try again later.');
+      }
     } finally {
       setLoading(false);
     }
@@ -92,29 +146,54 @@ export default function UserDashboard() {
 
   const fetchRandomQuote = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const headers = { Authorization: `Bearer ${token}` };
+      const headers = getAuthHeaders();
+      if (!headers) {
+        navigate('/login');
+        return;
+      }
+      
       const response = await axios.get(`${API_BASE}/quotes/random`, { headers });
       setRandomQuote(response.data);
     } catch (err) {
+      console.error('Error fetching random quote:', err);
+      
       // Fallback: pick a random quote from existing quotes
       if (quotes.length > 0) {
         const randomIndex = Math.floor(Math.random() * quotes.length);
         setRandomQuote(quotes[randomIndex]);
+      } else {
+        // Set error message if no quotes available
+        setError('Could not load a random quote. Please try again later.');
+      }
+      
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        // Only redirect if it's an authentication error
+        navigate('/login');
       }
     }
   };
 
   const fetchPopularQuotes = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const headers = { Authorization: `Bearer ${token}` };
+      const headers = getAuthHeaders();
+      if (!headers) {
+        navigate('/login');
+        return;
+      }
+      
       const response = await axios.get(`${API_BASE}/quotes/popular`, { headers });
       setPopularQuotes(response.data);
     } catch (err) {
+      console.error('Error fetching popular quotes:', err);
+      
       // Fallback: sort by likes
       const sorted = [...quotes].sort((a, b) => (b.likes_count || 0) - (a.likes_count || 0));
       setPopularQuotes(sorted.slice(0, 5));
+      
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        // Only redirect if it's an authentication error
+        navigate('/login');
+      }
     }
   };
 
@@ -122,6 +201,17 @@ export default function UserDashboard() {
   const handleCreate = async (formData) => {
     try {
       setError(''); // Clear previous errors
+      
+      // Form validation
+      if (!formData.content || formData.content.trim() === '') {
+        setError('Quote content is required');
+        return false;
+      }
+      
+      if (!formData.author || formData.author.trim() === '') {
+        setError('Author name is required');
+        return false;
+      }
       
       // Make sure formData.tags is always an array
       const safeFormData = {
@@ -131,17 +221,22 @@ export default function UserDashboard() {
       
       console.log('Creating quote with data:', safeFormData);
       
-      const token = localStorage.getItem('token');
-      const headers = { 
-        'Authorization': `Bearer ${token}`
-      };
+      const headers = getAuthHeaders();
+      if (!headers) {
+        navigate('/login');
+        return false;
+      }
       
       // Ensure data is properly formatted for the API
       const payload = {
-        content: safeFormData.content,
-        author: safeFormData.author,
-        category_id: safeFormData.category_id || null
+        content: safeFormData.content.trim(),
+        author: safeFormData.author.trim()
       };
+      
+      // Only add category_id if it's not empty
+      if (safeFormData.category_id && safeFormData.category_id !== '') {
+        payload.category_id = safeFormData.category_id;
+      }
       
       // Only include tags if they exist and are not empty
       if (safeFormData.tags && safeFormData.tags.length > 0) {
@@ -157,15 +252,22 @@ export default function UserDashboard() {
     } catch (err) {
       console.error('Error creating quote:', err);
       
-      // Show a simple error message
-      setError('Failed to create quote. Please try again.');
-      
-      // Use mock quote as fallback if server error
-      if (err.response?.status === 500) {
-        const mockQuote = createMockQuote(formData);
-        setQuotes(prev => [mockQuote, ...prev]);
-        setActiveTab('all');
-        return true;
+      if (err.response?.status === 422) {
+        // Extract validation errors from the response
+        const validationErrors = err.response?.data?.errors || {};
+        const errorMessages = Object.values(validationErrors).flat();
+        
+        if (errorMessages.length > 0) {
+          setError(`Validation error: ${errorMessages.join(', ')}`);
+        } else {
+          setError('Please check your form data and try again');
+        }
+      } else if (err.response?.status === 401 || err.response?.status === 403) {
+        setError('Your session has expired. Please log in again');
+        localStorage.removeItem('token');
+        navigate('/login');
+      } else {
+        setError('Failed to create quote. Please try again.');
       }
       
       return false;
@@ -174,8 +276,7 @@ export default function UserDashboard() {
 
   const handleUpdate = async (id, formData) => {
     try {
-      const token = localStorage.getItem('token');
-      const headers = { Authorization: `Bearer ${token}` };
+      const headers = getAuthHeaders();
       const response = await axios.put(`${API_BASE}/quotes/${id}`, formData, { headers });
       setQuotes(prev => prev.map(q => q.id === id ? response.data : q));
       setActiveTab('all');
@@ -187,13 +288,12 @@ export default function UserDashboard() {
   };
 
   const handleDelete = async (id) => {
-    console.log(id);
+   // console.log(id);
     
     if (!window.confirm('Are you sure you want to delete this quote?')) return;
     
     try {
-      const token = localStorage.getItem('token');
-      const headers = { Authorization: `Bearer ${token}` };
+      const headers = getAuthHeaders();
       await axios.delete(`${API_BASE}/quotes/${id}`, { headers });
       setQuotes(prev => prev.filter(q => q.id !== id));
       setFavorites(prev => prev.filter(q => q.id !== id));
@@ -205,7 +305,7 @@ export default function UserDashboard() {
   // Helper function to create a mock quote when the API fails
   const createMockQuote = (formData) => {
     // Increment the mock ID counter
-    const id = MOCK_ID_COUNTER.current++;
+    const id = mockIdCounter.current++;
     
     // Find category name if category_id is provided
     let category = null;
@@ -245,8 +345,7 @@ export default function UserDashboard() {
   // Actions
   const handleLike = async (id) => {
     try {
-      const token = localStorage.getItem('token');
-      const headers = { Authorization: `Bearer ${token}` };
+      const headers = getAuthHeaders();
       await axios.post(`${API_BASE}/quotes/${id}/like`, {}, { headers });
       
       // Update quotes with new like count
@@ -263,8 +362,7 @@ export default function UserDashboard() {
 
   const handleFavorite = async (id) => {
     try {
-      const token = localStorage.getItem('token');
-      const headers = { Authorization: `Bearer ${token}` };
+      const headers = getAuthHeaders();
       
       try {
         await axios.post(`${API_BASE}/quotes/${id}/favorite`, {}, { headers });
