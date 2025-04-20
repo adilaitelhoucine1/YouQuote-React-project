@@ -94,7 +94,7 @@ const ItemList = ({ items, type, onEdit, onDelete, onAdd }) => (
             <span className="text-gray-700">{item.name}</span>
             <div className="flex space-x-2">
               <button 
-                onClick={() => onEdit(type, item)}
+                onClick={() => onEdit(item)}
                 className="p-1 text-blue-500 hover:text-blue-700"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -116,7 +116,7 @@ const ItemList = ({ items, type, onEdit, onDelete, onAdd }) => (
         <li className="py-12 text-center">
           <p className="text-gray-500 mb-4">You haven't created any {type} yet.</p>
           <button 
-            onClick={() => onAdd(type)}
+            onClick={onAdd}
             className="bg-purple-600 text-white py-2 px-4 rounded-full font-medium hover:bg-purple-700 transition"
           >
             Add Your First {type === 'tags' ? 'Tag' : 'Category'}
@@ -128,11 +128,10 @@ const ItemList = ({ items, type, onEdit, onDelete, onAdd }) => (
 );
 
 // Form modal component
-const FormModal = ({ show, type, data, onClose, onSubmit, onChange, categories }) => {
+const FormModal = ({ show, type, data, onClose, onSubmit, onChange }) => {
   if (!show) return null;
   
-  const isNew = type.includes('new');
-  const itemType = type.replace('new', '').replace('edit', '');
+  const itemType = type.includes('Category') ? 'Category' : 'Tag';
   
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
@@ -147,90 +146,28 @@ const FormModal = ({ show, type, data, onClose, onSubmit, onChange, categories }
         </button>
         
         <h3 className="text-xl font-bold text-gray-700 mb-4">
-          {isNew ? 'Create New' : 'Edit'} {itemType}
+          {type.includes('new') ? 'Create New' : 'Edit'} {itemType}
         </h3>
         
         <form onSubmit={onSubmit} className="space-y-4">
-          {/* Quote Form */}
-          {(type === 'newQuote' || type === 'editQuote') && (
-            <>
-              <div>
-                <label className="block text-gray-700 mb-2 font-medium">Quote Content</label>
-                <textarea
-                  name="content"
-                  placeholder="Enter quote text..."
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-purple-400 focus:ring-2 focus:ring-purple-200 outline-none transition"
-                  value={data.content || ''}
-                  onChange={onChange}
-                  rows={4}
-                  required
-                ></textarea>
-              </div>
-              
-              <div>
-                <label className="block text-gray-700 mb-2 font-medium">Author</label>
-                <input
-                  type="text"
-                  name="author"
-                  placeholder="Who said this?"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-purple-400 focus:ring-2 focus:ring-purple-200 outline-none transition"
-                  value={data.author || ''}
-                  onChange={onChange}
-                  required
-                />
-              </div>
-              
-              <div>
-                <label className="block text-gray-700 mb-2 font-medium">Source (Optional)</label>
-                <input
-                  type="text"
-                  name="source"
-                  placeholder="Book, movie, etc."
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-purple-400 focus:ring-2 focus:ring-purple-200 outline-none transition"
-                  value={data.source || ''}
-                  onChange={onChange}
-                />
-              </div>
-              
-              <div>
-                <label className="block text-gray-700 mb-2 font-medium">Category</label>
-                <select
-                  name="category_id"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-purple-400 focus:ring-2 focus:ring-purple-200 outline-none transition"
-                  value={data.category_id || ''}
-                  onChange={onChange}
-                  required
-                >
-                  <option value="">Select a category</option>
-                  {categories.map(category => (
-                    <option key={category.id} value={category.id}>{category.name}</option>
-                  ))}
-                </select>
-              </div>
-            </>
-          )}
-          
-          {/* Tag or Category Form */}
-          {(type === 'newTag' || type === 'editTag' || type === 'newCategory' || type === 'editCategory') && (
-            <div>
-              <label className="block text-gray-700 mb-2 font-medium">{itemType} Name</label>
-              <input
-                type="text"
-                name="name"
-                placeholder={`Enter ${itemType.toLowerCase()} name`}
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-purple-400 focus:ring-2 focus:ring-purple-200 outline-none transition"
-                value={data.name || ''}
-                onChange={onChange}
-                required
-              />
-            </div>
-          )}
+          <div>
+            <label className="block text-gray-700 mb-2 font-medium">{itemType} Name</label>
+            <input
+              type="text"
+              name="name"
+              placeholder={`Enter ${itemType.toLowerCase()} name`}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-purple-400 focus:ring-2 focus:ring-purple-200 outline-none transition"
+              value={data.name || ''}
+              onChange={onChange}
+              required
+            />
+          </div>
           
           <button 
             type="submit"
             className="bg-purple-600 text-white py-3 px-6 rounded-full font-semibold text-center w-full hover:bg-purple-700 transform hover:-translate-y-1 transition-all duration-200 shadow-md"
           >
-            {isNew ? 'Create' : 'Update'}
+            {type.includes('new') ? 'Create' : 'Update'}
           </button>
         </form>
       </div>
@@ -240,11 +177,9 @@ const FormModal = ({ show, type, data, onClose, onSubmit, onChange, categories }
 
 export default function AdminDashboard() {
   // State
-  const [quotes, setQuotes] = useState([]);
   const [tags, setTags] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [favorites, setFavorites] = useState([]);
-  const [activeTab, setActiveTab] = useState('quotes');
+  const [activeTab, setActiveTab] = useState('tags');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   
@@ -273,18 +208,14 @@ export default function AdminDashboard() {
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
       
-      // Fetch all data in parallel
-      const [quotesRes, tagsRes, categoriesRes, favoritesRes] = await Promise.all([
-        axios.get(`${API_BASE}/quotes`, { headers }),
+      // Fetch tags and categories in parallel
+      const [tagsRes, categoriesRes] = await Promise.all([
         axios.get(`${API_BASE}/tags`, { headers }),
-        axios.get(`${API_BASE}/categories`, { headers }),
-        // axios.get(`${API_BASE}/quotes/Favorie`, { headers })
+        axios.get(`${API_BASE}/categories`, { headers })
       ]);
       
-      setQuotes(quotesRes.data);
       setTags(tagsRes.data);
       setCategories(categoriesRes.data);
-      setFavorites(favoritesRes.data);
       
     } catch (err) {
       console.error('Error fetching data:', err);
@@ -297,52 +228,8 @@ export default function AdminDashboard() {
     }
   };
   
-  const handleLike = async (quoteId) => {
-    try {
-      const token = localStorage.getItem('token');
-      await axios.post(`${API_BASE}/quotes/${quoteId}/like`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      // Update quotes after liking
-      setQuotes(quotes.map(quote => 
-        quote.id === quoteId 
-          ? { ...quote, likes_count: quote.likes_count + 1, is_liked: true } 
-          : quote
-      ));
-      
-    } catch (err) {
-      console.error('Error liking quote:', err);
-    }
-  };
-  
-  const handleFavorite = async (quoteId) => {
-    try {
-      const token = localStorage.getItem('token');
-      await axios.post(`${API_BASE}/quotes/${quoteId}/favorite`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      // Update quotes after favoriting
-      setQuotes(quotes.map(quote => 
-        quote.id === quoteId 
-          ? { ...quote, is_favorited: !quote.is_favorited } 
-          : quote
-      ));
-      
-      // Refresh favorites
-      const favRes = await axios.get(`${API_BASE}/favorites`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setFavorites(favRes.data);
-      
-    } catch (err) {
-      console.error('Error favoriting quote:', err);
-    }
-  };
-  
   const handleDelete = async (type, id) => {
-    if (!window.confirm(`Are you sure you want to delete this ${type}?`)) {
+    if (!window.confirm(`Are you sure you want to delete this ${type === 'tags' ? 'tag' : 'category'}?`)) {
       return;
     }
     
@@ -353,9 +240,7 @@ export default function AdminDashboard() {
       });
       
       // Update state after deletion
-      if (type === 'quotes') {
-        setQuotes(quotes.filter(quote => quote.id !== id));
-      } else if (type === 'tags') {
+      if (type === 'tags') {
         setTags(tags.filter(tag => tag.id !== id));
       } else if (type === 'categories') {
         setCategories(categories.filter(category => category.id !== id));
@@ -363,11 +248,13 @@ export default function AdminDashboard() {
       
     } catch (err) {
       console.error(`Error deleting ${type}:`, err);
+      setError(`Failed to delete ${type}. Please try again.`);
     }
   };
   
   // Modal handlers
   const openModal = (type, data = {}) => {
+    console.log("Opening modal:", type, data);
     setModalType(type);
     setModalData(data);
     setShowModal(true);
@@ -376,6 +263,7 @@ export default function AdminDashboard() {
   const closeModal = () => {
     setShowModal(false);
     setModalData({});
+    setError('');
   };
   
   const handleInputChange = (e) => {
@@ -390,14 +278,7 @@ export default function AdminDashboard() {
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
       
-      if (modalType === 'newQuote' || modalType === 'editQuote') {
-        const method = modalType === 'newQuote' ? 'post' : 'put';
-        const url = modalType === 'newQuote' 
-          ? `${API_BASE}/quotes` 
-          : `${API_BASE}/quotes/${modalData.id}`;
-        
-        await axios[method](url, modalData, { headers });
-      } else if (modalType === 'newTag' || modalType === 'editTag') {
+      if (modalType === 'newTag' || modalType === 'editTag') {
         const method = modalType === 'newTag' ? 'post' : 'put';
         const url = modalType === 'newTag'
           ? `${API_BASE}/tags`
@@ -419,6 +300,7 @@ export default function AdminDashboard() {
       
     } catch (err) {
       console.error('Error submitting form:', err);
+      setError('Failed to save changes. Please try again.');
     }
   };
   
@@ -443,7 +325,7 @@ export default function AdminDashboard() {
       <header className="bg-white shadow-md py-4 px-6">
         <div className="container mx-auto flex justify-between items-center">
           <div className="flex items-center">
-            <h1 className="text-2xl font-bold text-purple-600">YouQuote</h1>
+            <h1 className="text-2xl font-bold text-purple-600">Admin Dashboard</h1>
             <div className="text-3xl text-purple-300 leading-none ml-2">❝</div>
           </div>
           
@@ -460,8 +342,6 @@ export default function AdminDashboard() {
       <main className="container mx-auto py-8 px-4">
         {/* Tabs */}
         <div className="flex mb-6 bg-white rounded-full shadow-md p-1">
-          <TabButton label="Quotes" activeTab={activeTab} setActiveTab={setActiveTab} />
-          <TabButton label="Favorites" activeTab={activeTab} setActiveTab={setActiveTab} />
           <TabButton label="Tags" activeTab={activeTab} setActiveTab={setActiveTab} />
           <TabButton label="Categories" activeTab={activeTab} setActiveTab={setActiveTab} />
         </div>
@@ -470,17 +350,15 @@ export default function AdminDashboard() {
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-gray-700">{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}</h2>
           
-          {activeTab !== 'favorites' && (
-            <button 
-              onClick={() => openModal(`new${activeTab.slice(0, -1).charAt(0).toUpperCase() + activeTab.slice(0, -1).slice(1)}`)}
-              className="bg-purple-600 text-white py-2 px-4 rounded-full font-medium flex items-center hover:bg-purple-700 transition-all shadow-md"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              Add New
-            </button>
-          )}
+          <button 
+            onClick={() => openModal(activeTab === 'tags' ? 'newTag' : 'newCategory')}
+            className="bg-purple-600 text-white py-2 px-4 rounded-full font-medium flex items-center hover:bg-purple-700 transition-all shadow-md"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            Add New {activeTab === 'tags' ? 'Tag' : 'Category'}
+          </button>
         </div>
         
         {/* Error display */}
@@ -490,63 +368,12 @@ export default function AdminDashboard() {
           </div>
         )}
         
-        {/* Content based on active tab */}
-        {activeTab === 'quotes' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {quotes.length > 0 ? (
-              quotes.map(quote => (
-                <QuoteCard 
-                  key={quote.id} 
-                  quote={quote} 
-                  onLike={handleLike}
-                  onFavorite={handleFavorite}
-                  onEdit={(quote) => openModal('editQuote', quote)}
-                  onDelete={handleDelete}
-                />
-              ))
-            ) : (
-              <div className="col-span-full text-center py-12">
-                <div className="text-5xl text-purple-300 mb-3">❝</div>
-                <p className="text-gray-500 mb-4">You haven't created any quotes yet.</p>
-                <button 
-                  onClick={() => openModal('newQuote')}
-                  className="bg-purple-600 text-white py-2 px-4 rounded-full font-medium hover:bg-purple-700 transition"
-                >
-                  Add Your First Quote
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-        
-        {/* Favorites Tab */}
-        {activeTab === 'favorites' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {favorites.length > 0 ? (
-              favorites.map(quote => (
-                <QuoteCard 
-                  key={quote.id} 
-                  quote={quote} 
-                  onLike={handleLike}
-                  onFavorite={handleFavorite}
-                  showActions={false}
-                />
-              ))
-            ) : (
-              <div className="col-span-full text-center py-12">
-                <div className="text-5xl text-yellow-400 mb-3">★</div>
-                <p className="text-gray-500">You haven't favorited any quotes yet.</p>
-              </div>
-            )}
-          </div>
-        )}
-        
         {/* Tags Tab */}
         {activeTab === 'tags' && (
           <ItemList 
             items={tags}
             type="tags"
-            onEdit={(type, item) => openModal(`edit${type.slice(0, -1).charAt(0).toUpperCase() + type.slice(0, -1).slice(1)}`, item)}
+            onEdit={(item) => openModal('editTag', item)}
             onDelete={handleDelete}
             onAdd={() => openModal('newTag')}
           />
@@ -557,7 +384,7 @@ export default function AdminDashboard() {
           <ItemList 
             items={categories}
             type="categories"
-            onEdit={(type, item) => openModal(`edit${type.slice(0, -1).charAt(0).toUpperCase() + type.slice(0, -1).slice(1)}`, item)}
+            onEdit={(item) => openModal('editCategory', item)}
             onDelete={handleDelete}
             onAdd={() => openModal('newCategory')}
           />
@@ -572,7 +399,6 @@ export default function AdminDashboard() {
         onClose={closeModal}
         onSubmit={handleSubmit}
         onChange={handleInputChange}
-        categories={categories}
       />
     </div>
   );
