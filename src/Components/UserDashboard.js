@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import QuoteCard from './QuoteCard';
@@ -8,10 +8,61 @@ import TabNavigation from './TabNavigation';
 
 const API_BASE = 'https://youquote.adilaitelhoucine.me/api';
 
-export default function UserDashboard() {
-  // Use useRef instead of comment for mockIdCounter
-  const mockIdCounter = useRef(1000);
+// Category modal component
+const CategoryModal = ({ show, onClose, onSubmit }) => {
+  const [categoryName, setCategoryName] = useState('');
   
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSubmit(categoryName);
+    setCategoryName(''); // Reset the form
+  };
+  
+  if (!show) return null;
+  
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 relative">
+        <button 
+          onClick={onClose}
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+        
+        <h3 className="text-xl font-bold text-gray-700 mb-4">
+          Create New Category
+        </h3>
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-gray-700 mb-2 font-medium">Category Name</label>
+            <input
+              type="text"
+              value={categoryName}
+              onChange={(e) => setCategoryName(e.target.value)}
+              placeholder="Enter category name"
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-purple-400 focus:ring-2 focus:ring-purple-200 outline-none transition"
+              required
+            />
+          </div>
+          
+          <button 
+            type="submit"
+            className="bg-purple-600 text-white py-3 px-6 rounded-full font-semibold text-center w-full hover:bg-purple-700 transform hover:-translate-y-1 transition-all duration-200 shadow-md"
+          >
+            Create Category
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+export default function UserDashboard() {
+  // Main data state
   const [quotes, setQuotes] = useState([]);
   const [favorites, setFavorites] = useState([]);
   const [randomQuote, setRandomQuote] = useState(null);
@@ -19,9 +70,13 @@ export default function UserDashboard() {
   const [categories, setCategories] = useState([]);
   const [tags, setTags] = useState([]);
   
+  // UI state
   const [activeTab, setActiveTab] = useState('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showCategoryModal, setShowCategoryModal] = useState(false);
+  
+  // Form state
   const [formData, setFormData] = useState({
     id: null,
     content: '',
@@ -30,6 +85,7 @@ export default function UserDashboard() {
     tags: []
   });
   
+  // Filters state
   const [filters, setFilters] = useState({
     length: 'all',
     category: '',
@@ -39,7 +95,7 @@ export default function UserDashboard() {
   
   const navigate = useNavigate();
   
-  // Improved token validation
+  // ===== Authentication Helpers =====
   const getAuthHeaders = () => {
     const token = localStorage.getItem('token');
     if (!token) return null;
@@ -60,19 +116,18 @@ export default function UserDashboard() {
     return true;
   };
 
-  // Effect for initial data loading
+  // ===== Data Loading =====
   useEffect(() => {
     if (!validateToken()) return;
     fetchData();
   }, []);
   
-  // Effect for tab changes
   useEffect(() => {
     if (activeTab === 'random') fetchRandomQuote();
     if (activeTab === 'popular') fetchPopularQuotes();
   }, [activeTab]);
   
-  // Main data fetching function with better error handling
+  // Fetch all necessary data
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -81,7 +136,7 @@ export default function UserDashboard() {
         throw new Error('No authentication token found');
       }
       
-      // First try to get quotes to validate authentication
+      // First try to get quotes
       let quotesData = [];
       try {
         const quotesRes = await axios.get(`${API_BASE}/quotes`, { headers });
@@ -97,35 +152,35 @@ export default function UserDashboard() {
         setQuotes([]);
       }
       
-      // Fetch other data with better error handling
-      await Promise.allSettled([
-        // Categories
-        axios.get(`${API_BASE}/categories`, { headers })
-          .then(res => setCategories(res.data))
-          .catch(err => {
-            console.error('Error fetching categories:', err);
-            setCategories([]);
-          }),
-          
-        // Tags  
-        axios.get(`${API_BASE}/tags`, { headers })
-          .then(res => setTags(res.data))
-          .catch(err => {
-            console.error('Error fetching tags:', err);
-            setTags([]);
-          }),
-          
-        // Favorites
-        axios.get(`${API_BASE}/quotes/Favorie`, { headers })
-          .then(res => setFavorites(res.data))
-          .catch(err => {
-            console.error('Error fetching favorites:', err);
-            const userFavorites = quotesData.filter(quote => quote.is_favorited);
-            setFavorites(userFavorites);
-          })
-      ]);
+      // Fetch categories
+      try {
+        const categoriesRes = await axios.get(`${API_BASE}/categories`, { headers });
+        setCategories(categoriesRes.data);
+      } catch (err) {
+        console.error('Error fetching categories:', err);
+        setCategories([]);
+      }
       
-      setError(''); // Clear any previous error messages
+      // Fetch tags
+      try {
+        const tagsRes = await axios.get(`${API_BASE}/tags`, { headers });
+        setTags(tagsRes.data);
+      } catch (err) {
+        console.error('Error fetching tags:', err);
+        setTags([]);
+      }
+      
+      // Fetch favorites
+      try {
+        const favoritesRes = await axios.get(`${API_BASE}/quotes/Favorie`, { headers });
+        setFavorites(favoritesRes.data);
+      } catch (err) {
+        console.error('Error fetching favorites:', err);
+        const userFavorites = quotesData.filter(quote => quote.is_favorited);
+        setFavorites(userFavorites);
+      }
+      
+      setError(''); // Clear errors on success
     } catch (err) {
       console.error('Error fetching data:', err);
       
@@ -144,6 +199,7 @@ export default function UserDashboard() {
     }
   };
 
+  // ===== Tab-specific data loading =====
   const fetchRandomQuote = async () => {
     try {
       const headers = getAuthHeaders();
@@ -162,12 +218,10 @@ export default function UserDashboard() {
         const randomIndex = Math.floor(Math.random() * quotes.length);
         setRandomQuote(quotes[randomIndex]);
       } else {
-        // Set error message if no quotes available
         setError('Could not load a random quote. Please try again later.');
       }
       
       if (err.response?.status === 401 || err.response?.status === 403) {
-        // Only redirect if it's an authentication error
         navigate('/login');
       }
     }
@@ -191,35 +245,26 @@ export default function UserDashboard() {
       setPopularQuotes(sorted.slice(0, 5));
       
       if (err.response?.status === 401 || err.response?.status === 403) {
-        // Only redirect if it's an authentication error
         navigate('/login');
       }
     }
   };
 
-  // Quote CRUD operations
+  // ===== CRUD Operations =====
   const handleCreate = async (formData) => {
     try {
-      setError(''); // Clear previous errors
+      setError('');
       
-      // Form validation
-      if (!formData.content || formData.content.trim() === '') {
+      // Basic validation
+      if (!formData.content?.trim()) {
         setError('Quote content is required');
         return false;
       }
       
-      if (!formData.author || formData.author.trim() === '') {
+      if (!formData.author?.trim()) {
         setError('Author name is required');
         return false;
       }
-      
-      // Make sure formData.tags is always an array
-      const safeFormData = {
-        ...formData,
-        tags: Array.isArray(formData.tags) ? formData.tags : []
-      };
-      
-      console.log('Creating quote with data:', safeFormData);
       
       const headers = getAuthHeaders();
       if (!headers) {
@@ -227,25 +272,17 @@ export default function UserDashboard() {
         return false;
       }
       
-      // Ensure data is properly formatted for the API
+      // Prepare payload
       const payload = {
-        content: safeFormData.content.trim(),
-        author: safeFormData.author.trim()
+        content: formData.content.trim(),
+        author: formData.author.trim()
       };
       
-      // Only add category_id if it's not empty
-      if (safeFormData.category_id && safeFormData.category_id !== '') {
-        payload.category_id = safeFormData.category_id;
-      }
-      
-      // Only include tags if they exist and are not empty
-      if (safeFormData.tags && safeFormData.tags.length > 0) {
-        payload.tags = safeFormData.tags;
-      }
+      if (formData.category_id) payload.category_id = formData.category_id;
+      if (formData.tags?.length > 0) payload.tags = formData.tags;
       
       const response = await axios.post(`${API_BASE}/quotes`, payload, { headers });
       
-      // If successful, add to quotes and go back to all quotes view
       setQuotes(prev => [response.data, ...prev]);
       setActiveTab('all');
       return true;
@@ -253,15 +290,14 @@ export default function UserDashboard() {
       console.error('Error creating quote:', err);
       
       if (err.response?.status === 422) {
-        // Extract validation errors from the response
+        // Handle validation errors
         const validationErrors = err.response?.data?.errors || {};
         const errorMessages = Object.values(validationErrors).flat();
         
-        if (errorMessages.length > 0) {
-          setError(`Validation error: ${errorMessages.join(', ')}`);
-        } else {
-          setError('Please check your form data and try again');
-        }
+        setError(errorMessages.length ? 
+          `Validation error: ${errorMessages.join(', ')}` : 
+          'Please check your form data and try again'
+        );
       } else if (err.response?.status === 401 || err.response?.status === 403) {
         setError('Your session has expired. Please log in again');
         localStorage.removeItem('token');
@@ -276,85 +312,139 @@ export default function UserDashboard() {
 
   const handleUpdate = async (id, formData) => {
     try {
+      // Same validation as create
+      if (!formData.content?.trim() || !formData.author?.trim()) {
+        setError('Content and author are required');
+        return false;
+      }
+      
       const headers = getAuthHeaders();
-      const response = await axios.put(`${API_BASE}/quotes/${id}`, formData, { headers });
+      if (!headers) {
+        navigate('/login');
+        return false;
+      }
+      
+      // Prepare payload - same as create
+      const payload = {
+        content: formData.content.trim(),
+        author: formData.author.trim()
+      };
+      
+      if (formData.category_id) payload.category_id = formData.category_id;
+      if (formData.tags?.length > 0) payload.tags = formData.tags;
+      
+      const response = await axios.put(`${API_BASE}/quotes/${id}`, payload, { headers });
+      
+      // Update in both quotes and favorites
       setQuotes(prev => prev.map(q => q.id === id ? response.data : q));
+      setFavorites(prev => prev.map(q => q.id === id ? response.data : q));
+      
       setActiveTab('all');
+      setError('');
       return true;
     } catch (err) {
+      console.error('Error updating quote:', err);
       setError('Failed to update quote');
       return false;
     }
   };
 
   const handleDelete = async (id) => {
-   // console.log(id);
-    
     if (!window.confirm('Are you sure you want to delete this quote?')) return;
     
     try {
       const headers = getAuthHeaders();
+      if (!headers) {
+        navigate('/login');
+        return;
+      }
+      
       await axios.delete(`${API_BASE}/quotes/${id}`, { headers });
+      
+      // Remove from both quotes and favorites
       setQuotes(prev => prev.filter(q => q.id !== id));
       setFavorites(prev => prev.filter(q => q.id !== id));
+      
+      setError('');
     } catch (err) {
+      console.error('Error deleting quote:', err);
       setError('Failed to delete quote');
     }
   };
 
-  // Helper function to create a mock quote when the API fails
-  const createMockQuote = (formData) => {
-    // Increment the mock ID counter
-    const id = mockIdCounter.current++;
-    
-    // Find category name if category_id is provided
-    let category = null;
-    if (formData.category_id) {
-      const categoryObj = categories.find(c => c.id === parseInt(formData.category_id));
-      if (categoryObj) {
-        category = {
-          id: categoryObj.id,
-          name: categoryObj.name
-        };
+  // Add this new function for creating categories
+  const handleCreateCategory = async (categoryName) => {
+    try {
+      if (!categoryName || categoryName.trim() === '') {
+        setError('Category name is required');
+        return null;
       }
+      
+      const headers = getAuthHeaders();
+      if (!headers) {
+        navigate('/login');
+        return null;
+      }
+      
+      const response = await axios.post(
+        `${API_BASE}/categories`, 
+        { name: categoryName.trim() }, 
+        { headers }
+      );
+      
+      // Add the new category to the state
+      const newCategory = response.data;
+      setCategories(prev => [...prev, newCategory]);
+      setError('');
+      
+      return newCategory;
+    } catch (err) {
+      console.error('Error creating category:', err);
+      
+      if (err.response?.status === 422) {
+        // Handle validation errors
+        const validationErrors = err.response?.data?.errors || {};
+        const errorMessages = Object.values(validationErrors).flat();
+        
+        setError(errorMessages.length ? 
+          `Validation error: ${errorMessages.join(', ')}` : 
+          'Please check your category name and try again'
+        );
+      } else if (err.response?.status === 401 || err.response?.status === 403) {
+        setError('Your session has expired. Please log in again');
+        localStorage.removeItem('token');
+        navigate('/login');
+      } else {
+        setError('Failed to create category. Please try again.');
+      }
+      
+      return null;
     }
-    
-    // Get tags if provided
-    const quoteTags = formData.tags.map(tagId => {
-      const tag = tags.find(t => t.id === parseInt(tagId));
-      return tag ? { id: tag.id, name: tag.name } : { id: tagId, name: `Tag ${tagId}` };
-    });
-    
-    // Create a mock quote object
-    return {
-      id,
-      content: formData.content,
-      author: formData.author,
-      category_id: formData.category_id,
-      category,
-      tags: quoteTags,
-      likes_count: 0,
-      is_liked: false,
-      is_favorited: false,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      _isMock: true // Add a flag to identify mock quotes
-    };
   };
 
-  // Actions
+  // ===== Actions =====
   const handleLike = async (id) => {
     try {
       const headers = getAuthHeaders();
+      if (!headers) {
+        navigate('/login');
+        return;
+      }
+      
       await axios.post(`${API_BASE}/quotes/${id}/like`, {}, { headers });
       
       // Update quotes with new like count
-      setQuotes(prev => prev.map(q => {
+      const updateQuote = q => {
         if (q.id === id) {
           return { ...q, likes_count: (q.likes_count || 0) + 1, is_liked: true };
         }
         return q;
-      }));
+      };
+      
+      setQuotes(prev => prev.map(updateQuote));
+      setFavorites(prev => prev.map(updateQuote));
+      if (randomQuote?.id === id) setRandomQuote(updateQuote(randomQuote));
+      setPopularQuotes(prev => prev.map(updateQuote));
     } catch (err) {
       console.error('Error liking quote:', err);
     }
@@ -363,6 +453,10 @@ export default function UserDashboard() {
   const handleFavorite = async (id) => {
     try {
       const headers = getAuthHeaders();
+      if (!headers) {
+        navigate('/login');
+        return;
+      }
       
       try {
         await axios.post(`${API_BASE}/quotes/${id}/favorite`, {}, { headers });
@@ -372,16 +466,26 @@ export default function UserDashboard() {
       
       // Find the quote to toggle
       const quoteToToggle = quotes.find(q => q.id === id);
+      if (!quoteToToggle) return;
+      
       const newFavoritedState = !quoteToToggle.is_favorited;
       
-      // Update quotes
-      setQuotes(prev => prev.map(q => 
-        q.id === id ? { ...q, is_favorited: newFavoritedState } : q
-      ));
+      // Update quote in all relevant states
+      const updateQuote = q => {
+        if (q.id === id) {
+          return { ...q, is_favorited: newFavoritedState };
+        }
+        return q;
+      };
       
-      // Update favorites
+      setQuotes(prev => prev.map(updateQuote));
+      if (randomQuote?.id === id) setRandomQuote(updateQuote(randomQuote));
+      setPopularQuotes(prev => prev.map(updateQuote));
+      
+      // Update favorites list
       if (newFavoritedState) {
-        setFavorites(prev => [...prev, { ...quoteToToggle, is_favorited: true }]);
+        const updatedQuote = { ...quoteToToggle, is_favorited: true };
+        setFavorites(prev => [...prev, updatedQuote]);
       } else {
         setFavorites(prev => prev.filter(q => q.id !== id));
       }
@@ -407,7 +511,7 @@ export default function UserDashboard() {
     navigate('/login');
   };
 
-  // Render loading state
+  // ===== Render Loading State =====
   if (loading && !quotes.length) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50">
@@ -422,6 +526,7 @@ export default function UserDashboard() {
     );
   }
 
+  // ===== Main Render =====
   return (
     <div className="bg-gray-50 min-h-screen">
       {/* Header */}
@@ -442,6 +547,7 @@ export default function UserDashboard() {
       
       {/* Main content */}
       <main className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+        {/* Error Messages */}
         {error && (
           <div className="bg-red-50 text-red-600 p-4 rounded-lg mb-6">
             {error}
@@ -465,7 +571,7 @@ export default function UserDashboard() {
           }}
         />
         
-        {/* Content based on active tab */}
+        {/* Tab Content */}
         <div className="mt-6">
           {/* All Quotes Tab */}
           {activeTab === 'all' && (
@@ -628,10 +734,18 @@ export default function UserDashboard() {
                 () => handleCreate(formData)
               }
               onCancel={() => setActiveTab('all')}
+              onNewCategory={() => setShowCategoryModal(true)}
             />
           )}
         </div>
       </main>
+
+      {/* Category Modal */}
+      <CategoryModal 
+        show={showCategoryModal} 
+        onClose={() => setShowCategoryModal(false)} 
+        onSubmit={handleCreateCategory} 
+      />
     </div>
   );
 }

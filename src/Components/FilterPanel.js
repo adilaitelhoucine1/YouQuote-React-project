@@ -11,7 +11,6 @@ const FilterPanel = ({ filters, setFilters, categories, tags, onReset }) => {
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    // Search is handled by the parent component through the filters state
   };
 
   return (

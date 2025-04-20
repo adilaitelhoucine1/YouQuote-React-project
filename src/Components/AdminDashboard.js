@@ -19,71 +19,6 @@ const TabButton = ({ label, activeTab, setActiveTab }) => (
   </button>
 );
 
-// Quote card component
-const QuoteCard = ({ quote, onLike, onFavorite, onEdit, onDelete, showActions = true }) => (
-  <div className="bg-white rounded-xl shadow-md overflow-hidden relative group">
-    <div className="p-6">
-      <div className="text-4xl text-purple-300 mb-2">❝</div>
-      <blockquote className="text-gray-700 text-lg mb-3">{quote.content}</blockquote>
-      <p className="text-gray-500 italic">— {quote.author}</p>
-      
-      {quote.tags?.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {quote.tags.map(tag => (
-            <span key={tag.id} className="px-2 py-1 bg-purple-100 text-purple-600 text-xs rounded-full">
-              {tag.name}
-            </span>
-          ))}
-        </div>
-      )}
-      
-      <div className="flex justify-between items-center mt-4">
-        <div className="flex space-x-3">
-          <button 
-            onClick={() => onLike(quote.id)}
-            className={`flex items-center space-x-1 ${quote.is_liked ? 'text-pink-600' : 'text-gray-500 hover:text-pink-600'}`}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill={quote.is_liked ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={quote.is_liked ? 0 : 2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-            </svg>
-            <span>{quote.likes_count || 0}</span>
-          </button>
-          
-          <button 
-            onClick={() => onFavorite(quote.id)}
-            className={`flex items-center ${quote.is_favorited ? 'text-yellow-500' : 'text-gray-500 hover:text-yellow-500'}`}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill={quote.is_favorited ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={quote.is_favorited ? 0 : 2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-            </svg>
-          </button>
-        </div>
-        
-        {showActions && (
-          <div className="flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button 
-              onClick={() => onEdit(quote)}
-              className="p-1 text-blue-500 hover:text-blue-700"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-              </svg>
-            </button>
-            <button 
-              onClick={() => onDelete('quotes', quote.id)}
-              className="p-1 text-red-500 hover:text-red-700"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  </div>
-);
-
 // Item list component (for tags and categories)
 const ItemList = ({ items, type, onEdit, onDelete, onAdd }) => (
   <div className="bg-white rounded-xl shadow-md overflow-hidden">
@@ -206,7 +141,11 @@ export default function AdminDashboard() {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const headers = { Authorization: `Bearer ${token}` };
+      const headers = { 
+        Authorization: `Bearer ${token}`,
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      };
       
       // Fetch tags and categories in parallel
       const [tagsRes, categoriesRes] = await Promise.all([
@@ -220,7 +159,8 @@ export default function AdminDashboard() {
     } catch (err) {
       console.error('Error fetching data:', err);
       setError('Failed to load data. Please try again.');
-      if (err.response?.status === 401) {
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        localStorage.removeItem('token');
         navigate('/login');
       }
     } finally {
@@ -235,9 +175,13 @@ export default function AdminDashboard() {
     
     try {
       const token = localStorage.getItem('token');
-      await axios.delete(`${API_BASE}/${type}/${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const headers = { 
+        Authorization: `Bearer ${token}`,
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      };
+      
+      await axios.delete(`${API_BASE}/${type}/${id}`, { headers });
       
       // Update state after deletion
       if (type === 'tags') {
@@ -276,7 +220,14 @@ export default function AdminDashboard() {
     
     try {
       const token = localStorage.getItem('token');
-      const headers = { Authorization: `Bearer ${token}` };
+      const headers = { 
+        Authorization: `Bearer ${token}`,
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      };
+      
+      // Create the payload object with the form data
+      const payload = { name: modalData.name };
       
       if (modalType === 'newTag' || modalType === 'editTag') {
         const method = modalType === 'newTag' ? 'post' : 'put';
@@ -284,19 +235,20 @@ export default function AdminDashboard() {
           ? `${API_BASE}/tags`
           : `${API_BASE}/tags/${modalData.id}`;
           
-        await axios[method](url, { name: modalData.name }, { headers });
+        await axios[method](url, payload, { headers });
       } else if (modalType === 'newCategory' || modalType === 'editCategory') {
         const method = modalType === 'newCategory' ? 'post' : 'put';
         const url = modalType === 'newCategory'
           ? `${API_BASE}/categories`
           : `${API_BASE}/categories/${modalData.id}`;
           
-        await axios[method](url, { name: modalData.name }, { headers });
+        await axios[method](url, payload, { headers });
       }
       
       // Refresh data after changes
       await fetchData();
       closeModal();
+      setError(''); // Clear any previous errors
       
     } catch (err) {
       console.error('Error submitting form:', err);
@@ -340,7 +292,7 @@ export default function AdminDashboard() {
       
       {/* Main content */}
       <main className="container mx-auto py-8 px-4">
-        {/* Tabs */}
+        {/* Tabs - Only show Tags and Categories */}
         <div className="flex mb-6 bg-white rounded-full shadow-md p-1">
           <TabButton label="Tags" activeTab={activeTab} setActiveTab={setActiveTab} />
           <TabButton label="Categories" activeTab={activeTab} setActiveTab={setActiveTab} />
@@ -391,7 +343,7 @@ export default function AdminDashboard() {
         )}
       </main>
       
-      {/* Modal for creating/editing items */}
+      {/* Modal for creating/editing items - Simplified to only handle tags and categories */}
       <FormModal 
         show={showModal}
         type={modalType}

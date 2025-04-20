@@ -26,17 +26,14 @@ const Login = () => {
       if (response.data.user) {
         localStorage.setItem("user", JSON.stringify(response.data.user));
         
-        // Check user role and redirect accordingly
         const userRole = response.data.user.role;
         if (userRole === 'admin') {
           navigate("/admin/dashboard");
         
         } else {
-          // Default for regular users
           navigate("/user/dashboard");
         }
       } else {
-        // If no user data, navigate to default dashboard
         navigate("/Login");
       }
       
