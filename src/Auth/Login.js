@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import axios from "axios";
 import { useNavigate, Link } from "react-router-dom";
@@ -26,9 +25,17 @@ const Login = () => {
       
       if (response.data.user) {
         localStorage.setItem("user", JSON.stringify(response.data.user));
+        
+        const userRole = response.data.user.role;
+        if (userRole === 'admin') {
+          navigate("/admin/dashboard");
+        
+        } else {
+          navigate("/user/dashboard");
+        }
+      } else {
+        navigate("/Login");
       }
-      
-      navigate("/dashboard");
       
     } catch (err) {
       setError(err.response?.data?.message || "Invalid credentials");

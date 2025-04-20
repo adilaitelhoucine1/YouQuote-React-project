@@ -1,4 +1,3 @@
-// Import axios package directly
 import axios from 'axios';
 
 const api = axios.create({
