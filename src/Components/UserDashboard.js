@@ -570,28 +570,24 @@ export default function UserDashboard() {
       let processedQuotes = [];
       
       // Handle different API response structures
-      if (quotesRes && quotesRes.data) {
-        if (Array.isArray(quotesRes.data)) {
+      if (Array.isArray(quotesRes.data)) {
+        if (Array.isArray(quotesRes.data[0])) {
           processedQuotes = quotesRes.data[0];
-          console.log("Quote data is a direct array");
-        } 
-        else if (quotesRes.data.data && Array.isArray(quotesRes.data.data)) {
-          processedQuotes = quotesRes.data.data;
-          console.log("Quote data is in data property");
+        } else {
+          processedQuotes = quotesRes.data;
         }
-        else if (quotesRes.data.quotes && Array.isArray(quotesRes.data.quotes)) {
-          processedQuotes = quotesRes.data.quotes;
-          console.log("Quote data is in quotes property");
-        }
-        else if (typeof quotesRes.data === 'object') {
-          // Handle single quote object or unknown structure
-          if (quotesRes.data.content && quotesRes.data.author) {
-            processedQuotes = [quotesRes.data];
-            console.log("Quote data is a single quote object");
-          } else {
-            console.warn("Unknown quote data structure:", quotesRes.data);
-            processedQuotes = [];
-          }
+      } 
+      else if (quotesRes.data.data && Array.isArray(quotesRes.data.data)) {
+        processedQuotes = quotesRes.data.data;
+      } 
+      else if (quotesRes.data.quotes && Array.isArray(quotesRes.data.quotes)) {
+        processedQuotes = quotesRes.data.quotes;
+      } 
+      else if (typeof quotesRes.data === 'object') {
+        if (quotesRes.data.content && quotesRes.data.author) {
+          processedQuotes = [quotesRes.data];
+        } else {
+          processedQuotes = [];
         }
       }
       
@@ -659,7 +655,6 @@ export default function UserDashboard() {
       try {
         const favoritesRes = await axios.get(`${API_BASE}/quotes/Favorie`, { headers });
         
-        // Process favorites data
         let processedFavorites = [];
         if (favoritesRes && favoritesRes.data) {
           if (Array.isArray(favoritesRes.data)) {
@@ -671,9 +666,6 @@ export default function UserDashboard() {
         
         setFavorites(processedFavorites);
       } catch (err) {
-        console.warn('Error fetching favorites, using client-side fallback:', err);
-        
-        // Fall back to filtering quotes with is_favorited flag
         const userFavorites = processedQuotes.filter(quote => quote.is_favorited);
         setFavorites(userFavorites);
       }
@@ -902,7 +894,7 @@ export default function UserDashboard() {
       const headers = getAuthHeaders();
       if (!headers) return;
       
-      await axios.post(`${API_BASE}/quotes/${id}/like`, {}, { headers });
+      await axios.post(`https://youquote.adilaitelhoucine.me/api/quotes/like/${id}`, {}, { headers });
       
       // Update like count in all quote lists
       const updateQuoteInList = (list, setList) => {
@@ -933,46 +925,35 @@ export default function UserDashboard() {
   // Add/remove quote from favorites
   const handleFavorite = async (id) => {
     try {
+      console.log("iiiiiiiiiiiiiiiiiiiiiiiDDDDDDDDDDDDDDdd",id);
+      
       const headers = getAuthHeaders();
       if (!headers) return;
       
-      // Find the quote to toggle favorite status
       const quote = quotes.find(q => q.id === id);
-      if (!quote) {
-        console.error("Quote not found:", id);
-        return;
-      }
+      if (!quote) return;
       
-      // Current favorited state
       const isFavorited = quote.is_favorited;
       
-      // Toggle favorite status on API
       try {
-        await axios.post(`${API_BASE}/quotes/${id}/favorite`, {}, { headers });
+        await axios.post(`https://youquote.adilaitelhoucine.me/api/quotes/Favorie/${id}`, {}, { headers });
       } catch (err) {
-        console.warn('Favorite endpoint may not be available, using client-side fallback', err);
+        console.warn('Using client-side fallback for favorites');
       }
       
-      // Create updated quote object
       const updatedQuote = { ...quote, is_favorited: !isFavorited };
       
-      // Update quotes list
       setQuotes(prev => prev.map(q => q.id === id ? updatedQuote : q));
       
-      // Update random quote if it's the selected one
       if (randomQuote && randomQuote.id === id) {
         setRandomQuote(updatedQuote);
       }
       
-      // Update longest quotes if needed
       setLongestQuotes(prev => prev.map(q => q.id === id ? updatedQuote : q));
       
-      // Update favorites list
       if (!isFavorited) {
-        // Add to favorites
         setFavorites(prev => [...prev, updatedQuote]);
       } else {
-        // Remove from favorites
         setFavorites(prev => prev.filter(q => q.id !== id));
       }
       
