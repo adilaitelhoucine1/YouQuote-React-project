@@ -29,9 +29,9 @@ const FilterPanel = ({ filters, setFilters, categories, tags, onReset }) => {
             className="w-full border border-gray-300 rounded-md shadow-sm px-3 py-2 focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500"
           >
             <option value="all">All Lengths</option>
-            <option value="short">Short ()</option>
-            <option value="medium">Medium ()</option>
-            <option value="long">Long()</option>
+            <option value="short">Short (&lt;100 chars)</option>
+            <option value="medium">Medium (100-300 chars)</option>
+            <option value="long">Long (&gt;300 chars)</option>
           </select>
         </div>
         
